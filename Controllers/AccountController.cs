@@ -8,6 +8,8 @@ using Microsoft.Extensions.Logging;
 using API.Data;
 using API.Entities;
 using System.Security.Cryptography;
+using Microsoft.EntityFrameworkCore;
+using API.DTOs;
 
 namespace API.Controllers
 {
@@ -19,13 +21,15 @@ namespace API.Controllers
             _context = context;
         }
         [HttpPost("register")]
-        public async Task<ActionResult<AppUser>> Register(UserInfo info)
+        public async Task<ActionResult<AppUser>> Register(RegisterAccountDto registerAccount)
         {
+            if (await UserExist(registerAccount.Username)) return BadRequest("Username already exist");
             using var hmac = new HMACSHA512();
 
-            var user =  new AppUser {
-                UserName = info.username,
-                PasswordHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(info.password)),
+            var user = new AppUser
+            {
+                UserName = registerAccount.Username.ToLower(),
+                PasswordHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(registerAccount.Password)),
                 PasswordSalt = hmac.Key
             };
 
@@ -35,11 +39,27 @@ namespace API.Controllers
 
             return user;
         }
-        
-    }
-    public class UserInfo
-    {
-        public string username { get; set; }
-        public string password { get; set; }
+
+        [HttpPost("login")]
+        public async Task<ActionResult<AppUser>> Login(LoginAccountDto loginAccount)
+        {
+            var user = await this._context.Users.SingleOrDefaultAsync(x => x.UserName == loginAccount.Username);
+            if (user == null) return Unauthorized("Invalid username or password");
+
+            using var hmac = new HMACSHA512(user.PasswordSalt);
+            var computedHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(loginAccount.Password));
+
+            for (int i = 0; i < computedHash.Length; i++)
+            {
+                if (computedHash[i] != user.PasswordHash[i]) return Unauthorized("Invalid username or password");
+            }
+            return user;
+        }
+
+        private async Task<bool> UserExist(string username)
+        {
+            return await _context.Users.AnyAsync(x => x.UserName == username);
+        }
+
     }
 }
