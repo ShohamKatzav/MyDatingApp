@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using API.Data;
 using API.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,6 +19,7 @@ namespace API.Controllers
             _context = context;
         }
 
+        [Authorize]
         [HttpGet] // api/users
         public async Task<ActionResult<IEnumerable<AppUser>>> GetUsers()
         {
@@ -25,11 +27,13 @@ namespace API.Controllers
            return Ok(users);
         }
 
+        [Authorize]
         [HttpGet("{id}")] // api/users/1
         public async Task<ActionResult<AppUser>> GetUser(int id)
         {
             var user = await _context.Users.FindAsync(id);
             return user;
         }
+
     }
 }
